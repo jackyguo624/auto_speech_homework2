@@ -1,1 +1,1 @@
-# pytorch_asvspoof_2017
+# a homework in 2017
