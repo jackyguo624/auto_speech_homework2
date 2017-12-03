@@ -32,6 +32,7 @@ def load_data(dataset, label_file):
 
     final_data = []
     final_label = []
+    final_wav_ids = []
 
     for root, _, file_names in os.walk(dataset_dir):
         for file_name in tqdm(file_names, desc="loading {} data".format(dataset)):
@@ -40,32 +41,32 @@ def load_data(dataset, label_file):
             label = labels[wav_id]
             audio, _ = librosa.load(wav_path, sr=sample_rate,)
             feature = librosa.feature.mfcc(audio, sr=sample_rate, n_mfcc=13, n_fft=n_fft, hop_length=hop_length)
-            for each_time_feature in feature.T:
-                final_data.append(each_time_feature)
-                final_label.append(label)
-    final_data = np.array(final_data, dtype=np.float32)
-    # final_label = np.array(final_label, dtype=np.float32)
-    return final_data, final_label
+            final_data.append(feature)
+            final_label.append(label)
+            final_wav_ids.append(wav_id)
+    return final_data, final_label, final_wav_ids
 
 
 class ASVDataSet(Dataset):
 
-    def __init__(self, data, label, transform=True):
+    def __init__(self, data, label, wav_ids, transform=True):
         super(ASVDataSet, self).__init__()
         self.data = data
         self.label = label
+        self.wav_ids = wav_ids
         self.transform = transform
 
     def __len__(self):
         return len(self.data)
 
     def __getitem__(self, idx):
-        each_data, each_label = self.data[idx], self.label[idx]
+        each_data, each_label, each_wav_id = self.data[idx], self.label[idx], self.wav_ids[idx]
         if self.transform:
             each_data, each_label = torch.from_numpy(each_data), torch.LongTensor([each_label])
         return {
             "data": each_data,
-            "label": each_label
+            "label": each_label,
+            "wav_id": each_wav_id
         }
 
 

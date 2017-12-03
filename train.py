@@ -6,6 +6,10 @@ from torch.utils.data import DataLoader
 from data_feeder import load_data, ASVDataSet
 
 
+# parameters
+batch_size = 256
+
+
 def use_cuda():
     is_cuda = torch.cuda.is_available()
     return is_cuda
@@ -13,9 +17,9 @@ def use_cuda():
 
 def main():
     # loading train data
-    train_data, train_label = load_data("train", "data/protocol/ASVspoof2017_train.trn.txt")
-    train_dataset = ASVDataSet(train_data, train_label)
-    train_dataloader = DataLoader(train_dataset, batch_size=256, num_workers=1, shuffle=True)
+    train_data, train_label, train_wav_ids = load_data("train", "data/protocol/ASVspoof2017_train.trn.txt")
+    train_dataset = ASVDataSet(train_data, train_label, train_wav_ids)
+    train_dataloader = DataLoader(train_dataset, batch_size=1, num_workers=1, shuffle=True)
 
     model = DNNModel(input_dim=13, hidden_dim=1024, output_dim=2)
     if use_cuda():
