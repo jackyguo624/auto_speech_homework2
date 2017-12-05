@@ -17,11 +17,11 @@ def use_cuda():
 
 def main():
     # loading train data
-    train_data, train_label, train_wav_ids = load_data("train", "data/protocol/ASVspoof2017_train.trn.txt")
-    train_dataset = ASVDataSet(train_data, train_label, train_wav_ids)
-    train_dataloader = DataLoader(train_dataset, batch_size=1, num_workers=1, shuffle=True)
+    train_data, train_label = load_data("train", "data/protocol/ASVspoof2017_train.trn.txt", mode="train")
+    train_dataset = ASVDataSet(train_data, train_label, mode="train")
+    train_dataloader = DataLoader(train_dataset, batch_size=batch_size, num_workers=1, shuffle=True)
 
-    model = DNNModel(input_dim=13, hidden_dim=1024, output_dim=2)
+    model = DNNModel(input_dim=39, hidden_dim=4096, output_dim=2)
     if use_cuda():
         model = model.cuda()
     cross_entropy = nn.CrossEntropyLoss()

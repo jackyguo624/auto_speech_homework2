@@ -26,44 +26,81 @@ def load_label(label_file):
     return labels
 
 
-def load_data(dataset, label_file):
+def load_data(dataset, label_file, mode="train"):
     labels = load_label(label_file)
     dataset_dir = wav_dir_prefix + dataset
 
-    final_data = []
-    final_label = []
-    final_wav_ids = []
+    if mode == "train":
+        final_data = []
+        final_label = []
 
-    for root, _, file_names in os.walk(dataset_dir):
-        for file_name in tqdm(file_names, desc="loading {} data".format(dataset)):
-            wav_path = os.path.join(root, file_name)
-            wav_id = wav_path.split("/")[-1].split('.')[0]
-            label = labels[wav_id]
-            audio, _ = librosa.load(wav_path, sr=sample_rate,)
-            feature = librosa.feature.mfcc(audio, sr=sample_rate, n_mfcc=13, n_fft=n_fft, hop_length=hop_length)
-            final_data.append(feature)
-            final_label.append(label)
-            final_wav_ids.append(wav_id)
-    return final_data, final_label, final_wav_ids
+        for root, _, file_names in os.walk(dataset_dir):
+            for file_name in tqdm(file_names, desc="{} data".format(dataset)):
+                wav_path = os.path.join(root, file_name)
+                wav_id = wav_path.split("/")[-1].split('.')[0]
+                label = labels[wav_id]
+                audio, _ = librosa.load(wav_path, sr=sample_rate,)
+                mfcc = librosa.feature.mfcc(audio, sr=sample_rate, n_mfcc=13, n_fft=n_fft, hop_length=hop_length)
+                mfcc_delta_1 = librosa.feature.delta(mfcc)
+                mfcc_delta_2 = librosa.feature.delta(mfcc_delta_1)
+
+                feature = np.concatenate((mfcc, mfcc_delta_1, mfcc_delta_2), axis=0).T
+
+                for i in range(feature.shape[0]):
+                    final_data.append(feature[i, :])
+                    final_label.append(label)
+        return final_data, final_label
+
+    elif mode == "test":
+        final_data = []
+        final_label = []
+        final_wav_ids = []
+
+        for root, _, file_names in os.walk(dataset_dir):
+            for file_name in tqdm(file_names, desc="{} data".format(dataset)):
+                wav_path = os.path.join(root, file_name)
+                wav_id = wav_path.split("/")[-1].split('.')[0]
+                label = labels[wav_id]
+                audio, _ = librosa.load(wav_path, sr=sample_rate,)
+                mfcc = librosa.feature.mfcc(audio, sr=sample_rate, n_mfcc=13, n_fft=n_fft, hop_length=hop_length)
+                mfcc_delta_1 = librosa.feature.delta(mfcc)
+                mfcc_delta_2 = librosa.feature.delta(mfcc_delta_1)
+                feature = np.concatenate((mfcc, mfcc_delta_1, mfcc_delta_2), axis=0).T
+
+                final_data.append(feature)
+                final_label.append(np.tile(label, (feature.shape[0], )))
+                final_wav_ids.append(wav_id)
+
+        return final_data, final_label, final_wav_ids
+
+    else:
+        raise ValueError("the mode doesn't exist")
 
 
 class ASVDataSet(Dataset):
 
-    def __init__(self, data, label, wav_ids, transform=True):
+    def __init__(self, data, label, wav_ids=None, transform=True, mode="train"):
         super(ASVDataSet, self).__init__()
         self.data = data
         self.label = label
         self.wav_ids = wav_ids
         self.transform = transform
+        self.mode = mode
 
     def __len__(self):
         return len(self.data)
 
     def __getitem__(self, idx):
-        each_data, each_label, each_wav_id = self.data[idx], self.label[idx], self.wav_ids[idx]
+        if self.mode == "train":
+            each_data, each_label = self.data[idx], self.label[idx]
+        else:
+            each_data, each_label, each_wav_id = self.data[idx], self.label[idx], self.wav_ids[idx]
         if self.transform:
             each_data, each_label = torch.from_numpy(each_data), torch.LongTensor([each_label])
         return {
+            "data": each_data,
+            "label": each_label
+        } if self.mode == "train" else {
             "data": each_data,
             "label": each_label,
             "wav_id": each_wav_id
