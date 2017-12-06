@@ -35,7 +35,7 @@ def load_data(dataset, label_file, mode="train"):
         final_label = []
 
         for root, _, file_names in os.walk(dataset_dir):
-            for file_name in tqdm(file_names, desc="{} data".format(dataset)):
+            for file_name in tqdm(file_names[0:100], desc="{} data".format(dataset)):
                 wav_path = os.path.join(root, file_name)
                 wav_id = wav_path.split("/")[-1].split('.')[0]
                 label = labels[wav_id]
@@ -45,7 +45,6 @@ def load_data(dataset, label_file, mode="train"):
                 mfcc_delta_2 = librosa.feature.delta(mfcc_delta_1)
 
                 feature = np.concatenate((mfcc, mfcc_delta_1, mfcc_delta_2), axis=0).T
-
                 for i in range(feature.shape[0]):
                     final_data.append(feature[i, :])
                     final_label.append(label)
@@ -57,7 +56,7 @@ def load_data(dataset, label_file, mode="train"):
         final_wav_ids = []
 
         for root, _, file_names in os.walk(dataset_dir):
-            for file_name in tqdm(file_names, desc="{} data".format(dataset)):
+            for file_name in tqdm(file_names[0:100], desc="{} data".format(dataset)):
                 wav_path = os.path.join(root, file_name)
                 wav_id = wav_path.split("/")[-1].split('.')[0]
                 label = labels[wav_id]
@@ -66,9 +65,11 @@ def load_data(dataset, label_file, mode="train"):
                 mfcc_delta_1 = librosa.feature.delta(mfcc)
                 mfcc_delta_2 = librosa.feature.delta(mfcc_delta_1)
                 feature = np.concatenate((mfcc, mfcc_delta_1, mfcc_delta_2), axis=0).T
-
+                tmp_label = []
                 final_data.append(feature)
-                final_label.append(np.tile(label, (feature.shape[0], )))
+                for _ in range(feature.shape[0]):
+                    tmp_label.append(label)
+                final_label.append(tmp_label)
                 final_wav_ids.append(wav_id)
 
         return final_data, final_label, final_wav_ids
@@ -96,7 +97,7 @@ class ASVDataSet(Dataset):
         else:
             each_data, each_label, each_wav_id = self.data[idx], self.label[idx], self.wav_ids[idx]
         if self.transform:
-            each_data, each_label = torch.from_numpy(each_data), torch.LongTensor([each_label])
+            each_data, each_label = torch.from_numpy(each_data).float(), torch.LongTensor([each_label])
         return {
             "data": each_data,
             "label": each_label

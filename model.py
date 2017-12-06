@@ -7,11 +7,13 @@ class DNNModel(nn.ModuleList):
         super(DNNModel, self).__init__()
         self.linear1 = nn.Linear(input_dim, hidden_dim)
         self.linear2 = nn.Linear(hidden_dim, hidden_dim)
-        self.linear3 = nn.Linear(hidden_dim, output_dim)
+        self.linear3 = nn.Linear(hidden_dim, hidden_dim)
+        self.linear4 = nn.Linear(hidden_dim, output_dim)
         self.nonlinear = nn.ReLU()
 
     def forward(self, x):
         out = self.nonlinear(self.linear1(x))
         out = self.nonlinear(self.linear2(out))
-        out = self.linear3(out)
+        out = self.nonlinear(self.linear3(out))
+        out = self.linear4(out)
         return out
