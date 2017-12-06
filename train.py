@@ -8,7 +8,8 @@ from data_feeder import load_data, ASVDataSet
 
 # parameters
 print_str = "*"*10 + "{}" + "*"*10
-batch_size = 4
+batch_size = 1024
+num_epochs = 10
 
 
 def use_cuda():
@@ -25,15 +26,13 @@ def main():
 
     dev_data, dev_label, dev_wav_ids = load_data("dev", "data/protocol/ASVspoof2017_dev.trl.txt", mode="test")
     dev_dataset = ASVDataSet(dev_data, dev_label, wav_ids=dev_wav_ids, mode="test")
-    print("train data len: {} \t dev data len: {}".format(len(train_dataloader), len(dev_dataset)))
     model = DNNModel(input_dim=39, hidden_dim=4096, output_dim=2)
     if use_cuda():
         model = model.cuda()
     cross_entropy = nn.CrossEntropyLoss()
     optimizer = optim.Adam(params=model.parameters(), lr=0.01)
 
-    for epoch in range(100):
-        total_loss = 0
+    for epoch in range(num_epochs):
         for i, tmp in enumerate(train_dataloader):
             data = Variable(tmp['data'])
             label = Variable(tmp['label'])
@@ -43,24 +42,32 @@ def main():
             optimizer.zero_grad()
             predict = model(data)
             loss = cross_entropy(predict, label.long().view(-1))
-            total_loss += loss.data[0]
 
             loss.backward()
             optimizer.step()
 
-        # to test the dev data
-        total_dev_loss = 0.
-        for i, tmp in enumerate(dev_dataset):
-            data = Variable(tmp['data'])
-            label = Variable(tmp['label'])
-            if use_cuda():
-                data, label = data.cuda(), label.cuda()
-            predict = model(data)
-            loss = cross_entropy(predict, label.long().view(-1))
-            total_dev_loss += loss.data[0]
+            if (i+1) % 100 == 0:
+                print('Epoch [%d/%d], Iter [%d/%d], Loss: %.4f,' % (
+                    epoch+1, num_epochs, i+1, len(train_dataset)//batch_size, loss.data[0]), end="")
 
-        print("Epoch {} \t Train Loss: {} \t Dev Loss: {}".format(
-            epoch, total_loss / len(train_dataloader), total_dev_loss / len(dev_dataset)))
+                # to test the dev data
+                far = 0
+                frr = 0
+                for i, tmp in enumerate(dev_dataset):
+                    data = Variable(tmp['data'])
+                    label = tmp['label']
+                    if use_cuda():
+                        data = data.cuda()
+                    predict = model(data)
+                    _, predict_label = torch.max(predict.data, 1)
+                    final_label = torch.sum(predict_label) / predict_label.size(0)
+                    label = torch.sum(label)
+                    if label == 1 and final_label < 0.5:
+                        far += 1
+                    if label == 0 and final_label >= 0.5:
+                        frr += 1
+
+                print(" Dev FAR %d %% FRR %d %%" % (100 * far / (len(dev_dataset) - 760), 100 * frr / 760))
 
 if __name__ == '__main__':
     main()

@@ -35,7 +35,7 @@ def load_data(dataset, label_file, mode="train"):
         final_label = []
 
         for root, _, file_names in os.walk(dataset_dir):
-            for file_name in tqdm(file_names[0:100], desc="{} data".format(dataset)):
+            for file_name in tqdm(file_names, desc="{} data".format(dataset)):
                 wav_path = os.path.join(root, file_name)
                 wav_id = wav_path.split("/")[-1].split('.')[0]
                 label = labels[wav_id]
@@ -56,7 +56,7 @@ def load_data(dataset, label_file, mode="train"):
         final_wav_ids = []
 
         for root, _, file_names in os.walk(dataset_dir):
-            for file_name in tqdm(file_names[0:100], desc="{} data".format(dataset)):
+            for file_name in tqdm(file_names, desc="{} data".format(dataset)):
                 wav_path = os.path.join(root, file_name)
                 wav_id = wav_path.split("/")[-1].split('.')[0]
                 label = labels[wav_id]
@@ -65,11 +65,8 @@ def load_data(dataset, label_file, mode="train"):
                 mfcc_delta_1 = librosa.feature.delta(mfcc)
                 mfcc_delta_2 = librosa.feature.delta(mfcc_delta_1)
                 feature = np.concatenate((mfcc, mfcc_delta_1, mfcc_delta_2), axis=0).T
-                tmp_label = []
                 final_data.append(feature)
-                for _ in range(feature.shape[0]):
-                    tmp_label.append(label)
-                final_label.append(tmp_label)
+                final_label.append(label)
                 final_wav_ids.append(wav_id)
 
         return final_data, final_label, final_wav_ids
