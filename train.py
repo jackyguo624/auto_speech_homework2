@@ -51,8 +51,7 @@ def main():
                     epoch+1, num_epochs, i+1, len(train_dataset)//batch_size, loss.data[0]), end="")
 
                 # to test the dev data
-                far = 0
-                frr = 0
+                correct = 0
                 for i, tmp in enumerate(dev_dataset):
                     data = Variable(tmp['data'])
                     label = tmp['label']
@@ -62,12 +61,13 @@ def main():
                     _, predict_label = torch.max(predict.data, 1)
                     final_label = torch.sum(predict_label) / predict_label.size(0)
                     label = torch.sum(label)
-                    if label == 1 and final_label < 0.5:
-                        far += 1
-                    if label == 0 and final_label >= 0.5:
-                        frr += 1
+                    if label == 0 and final_label < 0.5:
+                        correct += 1
+                    if label == 1 and final_label >= 0.5:
+                        correct += 1
 
-                print(" Dev FAR %d %% FRR %d %%" % (100 * far / (len(dev_dataset) - 760), 100 * frr / 760))
+                print(" Dev ACCURACY: %d " % (100 * correct / len(dev_dataset)))
+
 
 if __name__ == '__main__':
     main()
