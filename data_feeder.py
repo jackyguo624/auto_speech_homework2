@@ -8,46 +8,51 @@ from tqdm import tqdm
 
 wav_dir_prefix = "./data/ASVspoof2017_"
 sample_rate = 16000
+extend_num = 5
 n_fft = int(25 * sample_rate / 1000)
 hop_length = int(10 * sample_rate / 1000)
 
 
 def load_label(label_file):
     labels = {}
+    wav_lists = []
     encode = {'genuine': 0, 'spoof': 1}
     with open(label_file, 'r', encoding="utf-8") as f:
         lines = f.readlines()
         for line in lines:
             line = line.strip().split()
             if len(line) > 1:
+                wav_lists.append(line[0])
                 wav_id = line[0].replace(".wav", "")
                 tmp_label = encode[line[1]]
                 labels[wav_id] = tmp_label
-    return labels
+    return labels, wav_lists
 
 
 def load_data(dataset, label_file, mode="train"):
-    labels = load_label(label_file)
+    labels, wav_lists = load_label(label_file)
     dataset_dir = wav_dir_prefix + dataset
 
     if mode == "train":
         final_data = []
         final_label = []
 
-        for root, _, file_names in os.walk(dataset_dir):
-            for file_name in tqdm(file_names, desc="{} data".format(dataset)):
-                wav_path = os.path.join(root, file_name)
-                wav_id = wav_path.split("/")[-1].split('.')[0]
-                label = labels[wav_id]
-                audio, _ = librosa.load(wav_path, sr=sample_rate,)
-                mfcc = librosa.feature.mfcc(audio, sr=sample_rate, n_mfcc=13, n_fft=n_fft, hop_length=hop_length)
-                mfcc_delta_1 = librosa.feature.delta(mfcc)
-                mfcc_delta_2 = librosa.feature.delta(mfcc_delta_1)
-
-                feature = np.concatenate((mfcc, mfcc_delta_1, mfcc_delta_2), axis=0).T
-                for i in range(feature.shape[0]):
-                    final_data.append(feature[i, :])
-                    final_label.append(label)
+        for wav_name in tqdm(wav_lists, desc="{} data".format(dataset)):
+            wav_path = os.path.join(dataset_dir, wav_name)
+            wav_id = wav_path.split("/")[-1].split('.')[0]
+            label = labels[wav_id]
+            audio, _ = librosa.load(wav_path, sr=sample_rate,)
+            # get 39 dim feature
+            mfcc = librosa.feature.mfcc(audio, sr=sample_rate, n_mfcc=13, n_fft=n_fft, hop_length=hop_length)
+            mfcc_delta_1 = librosa.feature.delta(mfcc)
+            mfcc_delta_2 = librosa.feature.delta(mfcc_delta_1)
+            feature = np.concatenate((mfcc, mfcc_delta_1, mfcc_delta_2), axis=0)
+            # do frame extend
+            feature = np.pad(feature, [[0, 0], [extend_num-1, extend_num-1]], mode="edge")
+            for i in range(4, feature.shape[1] - 5):
+                tmp_feature = feature[:, i-4:i+5].reshape(-1)
+                final_data.append(tmp_feature)
+                final_label.append(label)
         return final_data, final_label
 
     elif mode == "test":
@@ -55,19 +60,25 @@ def load_data(dataset, label_file, mode="train"):
         final_label = []
         final_wav_ids = []
 
-        for root, _, file_names in os.walk(dataset_dir):
-            for file_name in tqdm(file_names, desc="{} data".format(dataset)):
-                wav_path = os.path.join(root, file_name)
-                wav_id = wav_path.split("/")[-1].split('.')[0]
-                label = labels[wav_id]
-                audio, _ = librosa.load(wav_path, sr=sample_rate,)
-                mfcc = librosa.feature.mfcc(audio, sr=sample_rate, n_mfcc=13, n_fft=n_fft, hop_length=hop_length)
-                mfcc_delta_1 = librosa.feature.delta(mfcc)
-                mfcc_delta_2 = librosa.feature.delta(mfcc_delta_1)
-                feature = np.concatenate((mfcc, mfcc_delta_1, mfcc_delta_2), axis=0).T
-                final_data.append(feature)
-                final_label.append(label)
-                final_wav_ids.append(wav_id)
+        for wav_name in tqdm(wav_lists, desc="{} data".format(dataset)):
+            wav_path = os.path.join(dataset_dir, wav_name)
+            wav_id = wav_path.split("/")[-1].split('.')[0]
+            label = labels[wav_id]
+            audio, _ = librosa.load(wav_path, sr=sample_rate,)
+            mfcc = librosa.feature.mfcc(audio, sr=sample_rate, n_mfcc=13, n_fft=n_fft, hop_length=hop_length)
+            mfcc_delta_1 = librosa.feature.delta(mfcc)
+            mfcc_delta_2 = librosa.feature.delta(mfcc_delta_1)
+            feature = np.concatenate((mfcc, mfcc_delta_1, mfcc_delta_2), axis=0)
+            # do frame extend
+            feature = np.pad(feature, [[0, 0], [extend_num - 1, extend_num - 1]], mode="edge")
+            final_feature = []
+            for i in range(4, feature.shape[1] - 5):
+                tmp_feature = feature[:, i-4:i+5].reshape(-1)
+                final_feature.append(tmp_feature)
+            final_feature = np.array(final_feature).astype(np.float32)
+            final_data.append(final_feature)
+            final_label.append(label)
+            final_wav_ids.append(wav_id)
 
         return final_data, final_label, final_wav_ids
 
